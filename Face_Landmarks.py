@@ -1,6 +1,9 @@
 import httplib, urllib, base64, json
+from flask import Flask
 
 #def eye_aspect(cords):
+from flask import Flask
+from twilio.rest import Client
 
 from picamera import PiCamera
 from datetime import datetime
@@ -12,8 +15,22 @@ camera = PiCamera()
 
 block_blob_service = BlockBlobService(account_name='irisdriving', account_key='xNhodNyQZdly5H/LcEVZxEUvS4e4yiXEDg+45Ybw114KxPswAz3vIHnfhfzkvwlLz2muqXl3DZI6cbXqptbb2Q==')
 
+def callme():
+    account_sid = "AC22bf4ab1edd875930cc2be19249fb20f"
+    auth_token = "e0bf551c89039c6b299854ce2c07eb26"
+    client = Client(account_sid, auth_token)
+    #Make the call
+    call = client.api.account.calls\
+       .create(to="+19785006516",  # Any phone number
+               from_="+16177185216", # Must be a valid Twilio number
+               url="http://twimlets.com/holdmusic?Bucket=com.twilio.music.ambient")
+
+    print(call.sid)
+
+
 def imageCall():
-    filename = "pircam-" +  datetime.now().strftime("%Y-%m-%d_%H.%M.%S.jpg")
+    timeCreated = datetime.now().strftime("%Y-%m-%d_%H.%M.%S.jpg")
+    filename = "pircam-" + timeCreated
     camera.capture(filename)
     print("picture taken")
     block_blob_service.create_blob_from_path(
@@ -22,7 +39,7 @@ def imageCall():
     filename,
     content_settings=ContentSettings(content_type='image/jpeg'))
     time.sleep(1)
-    return "https://irisdriving.blob.core.windows.net/pipictures/pircam-" + filename
+    return str("https://irisdriving.blob.core.windows.net/pipictures/" + filename)
 
 
 def main(img):
@@ -43,8 +60,8 @@ def main(img):
 
             # The URL of a JPEG image to analyze.
     bag = ['jpg','JPG','png','PNG']
-    body = "{'url':img}"
 
+    body = str({'url':img})
 
     try:
         conn = httplib.HTTPSConnection('westcentralus.api.cognitive.microsoft.com')
@@ -55,8 +72,6 @@ def main(img):
 
         data = response.read()
         parsed = json.loads(data)
-        xf = json.dumps(parsed, sort_keys=True, indent=2)
-        #prin(xf)
 
         attr = parsed[0]["faceAttributes"]['emotion']
         glass_flag = parsed[0]["faceAttributes"]['glasses']        # check NoGlasses
@@ -89,7 +104,6 @@ def main(img):
             return (-1,-1)
     except Exception as e:
         print("Check Image Url . ")
-        print("[Errno {0}] {1}".format(e.errno, e.strerror))
 
 
 def mainPic():
@@ -111,7 +125,6 @@ def mainPic():
     time.sleep(1)
     print("Smile")
     li.append(imageCall())
-
     print("Take picture looking directly at the camera with your eyes normal")
     time.sleep(3)
     print("3")
@@ -124,21 +137,23 @@ def mainPic():
     return li
 
 def infi(refx,refy):
+    li = []
     while True:
         link = imageCall()
         x,y = main(link)
-        print(x,y)
+        li.append((x,y))
         if(x<refx or y<refy):
+            print(li)
+            callme()
             print("GONE")
         time.sleep(1)
 
 
 if __name__ == "__main__":
     li =  mainPic()
-    print(li)
     x,y =  0 ,0
-    for item in li:
-        tmp  = main(item)
+    for i in li:
+        tmp = main(i)
         if tmp == (-1,-1):
             print("FATAL")
             exit()
